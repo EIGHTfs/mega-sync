@@ -1,0 +1,42 @@
+name: publish
+
+# 用 npm 的「信任发布（Trusted Publishing）」发版：
+#   不需要任何 npm token —— GitHub Actions 通过 OIDC 向 npm 证明「这次发布来自本仓库本工作流」，
+#   也就不存在长期凭据泄露的问题（npm 从 2026-07 起收紧了 2FA 绕过 token，这是官方推荐路径）。
+#
+# 一次性配置（在 npm 网站上，需要账号本人带 2FA 交互完成）：
+#   npmjs.com → 你的包/账号 → Settings → Publishing access → Trusted Publisher
+#   选 GitHub，填：Organization/User = EIGHTfs，Repository = mega-sync，Workflow = publish.yml
+#
+# 之后触发方式二选一：
+#   · 在 GitHub 上创建 Release（会自动触发）
+#   · 手动：Actions → publish → Run workflow
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # 信任发布必需：允许获取 OIDC 令牌
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 离线自检
+        run: npm test
+
+      - name: 发布到 npm（信任发布，无需 token）
+        run: npm publish --provenance --access public
