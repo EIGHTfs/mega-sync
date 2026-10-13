@@ -14,7 +14,24 @@ const path = require('node:path');
 const pkg = require('../package.json');
 const { USAGE, loadConfig, ensureStateDir } = require('../lib/config.js');
 const { applyProxy, openLink, getStorage, walk, findNodeByPath } = require('../lib/client.js');
-const { EXIT, isQuotaError, planFor, fmt, downloadOne } = require('../lib/sync.js');
+const { EXIT, isQuotaError, isBlockedError, quotaResetSeconds, planFor, fmt, downloadOne } = require('../lib/sync.js');
+
+/** 配额恢复秒数的落盘路径（main() 里按配置设定；顶层 catch 也要用） */
+let waitFile = null;
+
+/** 记录平台给出的配额恢复秒数，供 sync-loop.sh 精确等待（写不了不影响主流程） */
+function recordQuotaWait(err) {
+  const secs = quotaResetSeconds(err);
+  if (secs > 0 && waitFile) {
+    try {
+      fs.writeFileSync(waitFile, String(secs));
+      return secs;
+    } catch {
+      /* 忽略 */
+    }
+  }
+  return 0;
+}
 
 /** 打印 + 追加日志（日志写不了不影响主流程） */
 function makeLogger(cfg) {
@@ -66,6 +83,7 @@ async function main() {
   }
 
   ensureStateDir(cfg);
+  waitFile = path.join(cfg.stateDir, '.wait-seconds'); // 配额恢复秒数落盘，供 sync-loop.sh 精确等待
   const log = makeLogger(cfg);
 
   if (applyProxy(cfg.proxy)) log(`代理已启用：${cfg.proxy}`);
@@ -105,8 +123,14 @@ async function main() {
       });
       if (r === 'done') done += 1;
     } catch (err) {
+      if (isBlockedError(err)) {
+        log(`账号被 MEGA 封锁/限制：${String(err.message).slice(0, 120)}`);
+        log('这类错误重试无用（反复登录会加重限制），已停止本轮；请人工处理后再运行');
+        return EXIT.BLOCKED;
+      }
       if (isQuotaError(err)) {
-        log(`撞上 MEGA 配额/限流：${String(err.message).slice(0, 120)}`);
+        const secs = recordQuotaWait(err);
+        log(`撞上 MEGA 配额/限流：${String(err.message).slice(0, 120)}${secs ? `（${secs} 秒后恢复，已记录供循环精确等待）` : ''}`);
         log(`本轮已下 ${done} 个；配额窗口恢复后重跑即可（进度保留在 .part）`);
         return EXIT.QUOTA;
       }
@@ -122,7 +146,13 @@ async function main() {
 main()
   .then((code) => process.exit(code))
   .catch((err) => {
+    if (isBlockedError(err)) {
+      console.error(`账号被 MEGA 封锁/限制：${String(err.message).slice(0, 120)}`);
+      console.error('请人工处理（登录 mega.nz 看提示 / 查注册邮箱），解封前不要重复运行');
+      process.exit(EXIT.BLOCKED);
+    }
     if (isQuotaError(err)) {
+      recordQuotaWait(err);
       console.error(`撞上 MEGA 配额/限流：${String(err.message).slice(0, 120)}`);
       process.exit(EXIT.QUOTA);
     }

@@ -1,6 +1,6 @@
 {
   "name": "mega-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pull-sync MEGA cloud drives and public share links to a local folder, with byte-resume and free-tier quota backoff.",
   "license": "MIT",
   "author": "EIGHTfs",

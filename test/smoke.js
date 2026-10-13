@@ -14,7 +14,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { parseArgv, loadConfig } = require('../lib/config.js');
-const { planFor, isQuotaError, fmt, EXIT } = require('../lib/sync.js');
+const { planFor, isQuotaError, isBlockedError, quotaResetSeconds, fmt, EXIT } = require('../lib/sync.js');
 
 let pass = 0;
 let fail = 0;
@@ -121,7 +121,24 @@ try {
     assert.strictEqual(fmt(3 * 1073741824), '3.00GB');
   });
   check('⑮ 退出码约定稳定（循环脚本依赖）', () => {
-    assert.deepStrictEqual(EXIT, { OK: 0, ERROR: 1, CONFIG: 2, QUOTA: 3 });
+    assert.deepStrictEqual(EXIT, { OK: 0, ERROR: 1, CONFIG: 2, QUOTA: 3, BLOCKED: 4 });
+  });
+  check('⑯ 账号封锁错误被识别（此类必须停止重试）', () => {
+    for (const m of ['EBLOCKED (-16): User blocked', 'User blocked', 'Account has been blocked']) {
+      assert.strictEqual(isBlockedError(new Error(m)), true, m);
+    }
+    for (const m of ['ENOENT (-9): Object not found', 'Bandwidth limit reached: 10 seconds until it resets']) {
+      assert.strictEqual(isBlockedError(new Error(m)), false, m);
+    }
+  });
+  check('⑰ 配额恢复秒数提取（用于精确等待）', () => {
+    assert.strictEqual(quotaResetSeconds(new Error('Bandwidth limit reached: 5095 seconds until it resets')), 5095);
+    assert.strictEqual(quotaResetSeconds(new Error('Bandwidth limit reached: 1 second until it resets')), 1);
+    assert.strictEqual(quotaResetSeconds(new Error('EOVERQUOTA')), 0);
+  });
+  check('⑱ 封锁与配额互不误判', () => {
+    assert.strictEqual(isQuotaError(new Error('EBLOCKED (-16): User blocked')), false);
+    assert.strictEqual(isBlockedError(new Error('EOVERQUOTA: over quota')), false);
   });
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
