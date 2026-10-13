@@ -1,0 +1,18 @@
+# 依赖与本地状态（都不入库）
+node_modules/
+
+# 本地配置与会话（含账号密码/会话令牌）
+mega-sync.config.json
+.npmrc
+
+# 运行状态目录（会话、日志、下载中间文件）
+.mega-sync/
+*.part
+
+# 临时/编辑器
+*.log
+.DS_Store
+
+# 依赖锁文件（本机安装产生，不入库）
+package-lock.json
+node_modules.orig/

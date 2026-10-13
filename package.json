@@ -1,0 +1,45 @@
+{
+  "name": "mega-sync",
+  "version": "1.0.0",
+  "description": "Pull-sync MEGA cloud drives and public share links to a local folder, with byte-resume and free-tier quota backoff.",
+  "license": "MIT",
+  "author": "EIGHTfs",
+  "type": "commonjs",
+  "bin": {
+    "mega-sync": "bin/mega-sync.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mega",
+    "megajs",
+    "sync",
+    "download",
+    "resume",
+    "quota",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EIGHTfs/mega-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EIGHTfs/mega-sync/issues"
+  },
+  "homepage": "https://github.com/EIGHTfs/mega-sync#readme",
+  "scripts": {
+    "test": "node test/smoke.js"
+  },
+  "dependencies": {
+    "megajs": "^1.3.10",
+    "undici": "^8.11.2"
+  }
+}
